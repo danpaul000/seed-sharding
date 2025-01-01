@@ -78,12 +78,15 @@ if __name__ == "__main__":
     print("\nRecombine one set of shares to recover condensed seed phrase:\n")
     print("Original condensed seed:", mnemonic_bytestring)
     print("Recovered condensed seed:", recovered_condensed_secret)
+    if recovered_condensed_secret == mnemonic_bytestring:
+        print("Recovery successful!")
+    else:
+        print("!!! ERROR: Recovery failed !!!")
 
     recovered_condensed_secret = ssss.recover_secret(recovered_share_contents[-ssss_threshold_shares:])
     print("\nRecombine a different set of shares to recover condensed seed phrase:\n")
     print("Original condensed seed:", mnemonic_bytestring)
     print("Recovered condensed seed:", recovered_condensed_secret)
-
     if recovered_condensed_secret == mnemonic_bytestring:
         print("Recovery successful!")
     else:
