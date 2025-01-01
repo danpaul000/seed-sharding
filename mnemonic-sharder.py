@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     seed_phrase_raw = args.seed_phrase
     ssss_num_shares = args.num_shares
-    ssss_threshold_shards = args.threshold_shares
+    ssss_threshold_shares = args.threshold_shares
 
     original_seed_phrase = seed_phrase_raw.split()
     print("Original seed:\n", ' '.join(original_seed_phrase))
@@ -49,33 +49,38 @@ if __name__ == "__main__":
     mnemonic_bytestring = condense_mnemonic(bip39_wordlist, original_seed_phrase)
     print("\nOriginal condensed seed:\n", mnemonic_bytestring)
 
-    original_shard_contents = ssss.make_random_shares(mnemonic_bytestring, ssss_threshold_shards, ssss_num_shares)
-    print("\nOriginal shard contents:")
-    for i, shard in original_shard_contents:
-        print(i, shard)
+    original_share_contents = ssss.make_random_shares(mnemonic_bytestring, ssss_threshold_shares, ssss_num_shares)
+    print("\nOriginal share contents:")
+    for i, share in original_share_contents:
+        print(i, share)
 
-    print("\nShards in mnemonic form:")
-    all_shard_mnemonics = []
-    for i, shard in original_shard_contents:
-        shard_mnemonic = expand_mnemonic(bip39_wordlist, shard)
-        print(i, ' '.join(shard_mnemonic))
-        all_shard_mnemonics.append(shard_mnemonic)
+    print("\nShares in mnemonic form:")
+    all_share_mnemonics = []
+    for i, share in original_share_contents:
+        share_mnemonic = expand_mnemonic(bip39_wordlist, share)
+        print(i, ' '.join(share_mnemonic))
+        all_share_mnemonics.append(share_mnemonic)
 
     print("\n###################################")
-    print("Sharded mnemonics created above.\nRecovery of original seed information using shards below.")
+    print("Sharded mnemonics created above.\nRecovery of original seed information using shares below.")
     print("###################################")
 
-    print("\nRecover shard contents from mnemonics:\n")
+    print("\nRecover share contents from mnemonics:\n")
     # Run everything in reverse and rebuild original seed phrase
-    recovered_shard_contents=[]
-    for i in range(len(all_shard_mnemonics)):
-        recovered_shard_contents.append((i+1, condense_mnemonic(bip39_wordlist, all_shard_mnemonics[i])))
-        print("Recovered shard:", recovered_shard_contents[i],
-              "Original shard:", original_shard_contents[i],
-              "Match:", recovered_shard_contents[i]==original_shard_contents[i])
+    recovered_share_contents=[]
+    for i in range(len(all_share_mnemonics)):
+        recovered_share_contents.append((i+1, condense_mnemonic(bip39_wordlist, all_share_mnemonics[i])))
+        print("Recovered share:", recovered_share_contents[i],
+              "Original share:", original_share_contents[i],
+              "Match:", recovered_share_contents[i]==original_share_contents[i])
 
-    recovered_condensed_secret = ssss.recover_secret(recovered_shard_contents[:3])
-    print("\nRecombine shards to recover condensed seed phrase:\n")
+    recovered_condensed_secret = ssss.recover_secret(recovered_share_contents[:ssss_threshold_shares])
+    print("\nRecombine one set of shares to recover condensed seed phrase:\n")
+    print("Original condensed seed:", mnemonic_bytestring)
+    print("Recovered condensed seed:", recovered_condensed_secret)
+
+    recovered_condensed_secret = ssss.recover_secret(recovered_share_contents[-ssss_threshold_shares:])
+    print("\nRecombine a different set of shares to recover condensed seed phrase:\n")
     print("Original condensed seed:", mnemonic_bytestring)
     print("Recovered condensed seed:", recovered_condensed_secret)
 
