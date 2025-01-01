@@ -1,4 +1,5 @@
 import ssss
+import argparse
 
 def condense_mnemonic(word_list, mnemonic_phrase):
     bytestring = 0
@@ -19,21 +20,33 @@ def expand_mnemonic(word_list, s):
     return mnemonic_phrase
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s","--seed-phrase",
+                        help="Seed phrase to shard. Will use dummy seed phrase if not provided",
+                        default="velvet duty city expire credit base bronze turn exist learn rigid modify brother assist\
+     amused antenna caught charge renew wide remain mixed gravity cave")
+    parser.add_argument("-n", "--num-shares",
+                        help="Number of shares to generate. Default: 5",
+                        type=int,
+                        default=5)
+    parser.add_argument("-t", "--threshold-shares",
+                        help="Minimum/threshold number of shares needed to recover original secret. Default: 3",
+                        type=int,
+                        default=3)
+    args = parser.parse_args()
 
-    ssss_num_shares = 5
-    ssss_threshold_shards = 3
+    seed_phrase_raw = args.seed_phrase
+    ssss_num_shares = args.num_shares
+    ssss_threshold_shards = args.threshold_shares
 
-    dummy_seed_phrase = "velvet duty city expire credit base bronze turn exist learn rigid modify brother assist amused antenna caught charge renew wide remain mixed gravity cave"
-    # dummy_seed_phrase = "velvet duty city expire credit base bronze turn exist learn rigid"
-    seed_phrase = dummy_seed_phrase.split()
-
-    print("Original seed:\n", ' '.join(seed_phrase))
+    original_seed_phrase = seed_phrase_raw.split()
+    print("Original seed:\n", ' '.join(original_seed_phrase))
 
     d = "english.txt"
     with open(d, "r", encoding="utf-8") as f:
         bip39_wordlist = [w.strip() for w in f.readlines()]
 
-    mnemonic_bytestring = condense_mnemonic(bip39_wordlist, seed_phrase)
+    mnemonic_bytestring = condense_mnemonic(bip39_wordlist, original_seed_phrase)
     print("\nOriginal condensed seed:\n", mnemonic_bytestring)
 
     original_shard_contents = ssss.make_random_shares(mnemonic_bytestring, ssss_threshold_shards, ssss_num_shares)
@@ -72,10 +85,10 @@ if __name__ == "__main__":
         print("!!! ERROR: Recovery failed !!!")
 
     recovered_seed_phrase = expand_mnemonic(bip39_wordlist, recovered_condensed_secret)
-    print("\nOriginal seed phrase:\n", ' '.join(seed_phrase))
+    print("\nOriginal seed phrase:\n", ' '.join(original_seed_phrase))
     print("Recovered seed phrase:\n", ' '.join(recovered_seed_phrase))
 
-    if recovered_seed_phrase == seed_phrase:
+    if recovered_seed_phrase == original_seed_phrase:
         print("Recovery successful!")
     else:
         print("!!! ERROR: Recovery failed !!!")
