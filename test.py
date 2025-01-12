@@ -24,22 +24,25 @@ class TestMnemonicSharder(unittest.TestCase):
         self.verbose = False
 
     def test_fixed_secrets(self):
-        for original_secret in self.fixed_secrets:
-            print (f"Testing split and recominbation of: {original_secret}")
-            mnemonic_shares = op_split(original_secret, self.num_shares, self.threshold_shares, self.bip39_wordlist, self.bitshift, verbose=self.verbose)
-            recovered_secret = op_combine(mnemonic_shares[0:self.threshold_shares], self.bip39_wordlist, self.bitshift, verbose=self.verbose)
-            print(f"Original secret: {original_secret}")
-            print(f"Recovered secret: {recovered_secret}")
-            self.assertEqual(original_secret, recovered_secret, 'The recovered secret does not match original!')
-
+        for secret in self.fixed_secrets:
+            self.run_split_and_combine(secret)
     def test_random_secrets(self):
-        for original_secret in self.random_secrets:
-            print (f"Testing split and recominbation of: {original_secret}")
-            mnemonic_shares = op_split(original_secret, self.num_shares, self.threshold_shares, self.bip39_wordlist, self.bitshift, verbose=self.verbose)
-            recovered_secret = op_combine(mnemonic_shares[0:self.threshold_shares], self.bip39_wordlist, self.bitshift, verbose=self.verbose)
-            print(f"Original secret: {original_secret}")
-            print(f"Recovered secret: {recovered_secret}")
-            self.assertEqual(original_secret, recovered_secret, 'The recovered secret does not match original!')
+        for secret in self.random_secrets:
+            self.run_split_and_combine(secret)
+
+    def run_split_and_combine(self, original_secret):
+        mnemonic_shares = op_split(original_secret, self.num_shares, self.threshold_shares, self.bip39_wordlist, self.bitshift, verbose=self.verbose)
+
+        recovered_secret_first_combo = op_combine(mnemonic_shares[0:self.threshold_shares], self.bip39_wordlist, self.bitshift, verbose=self.verbose)
+        recovered_secret_second_combo = op_combine(mnemonic_shares[-self.threshold_shares:], self.bip39_wordlist, self.bitshift, verbose=self.verbose)
+
+        print(f"Original secret: {original_secret}")
+        print(f"Recovered secret (first set of shares): {recovered_secret_first_combo}")
+        print(f"Recovered secret (second set of shares): {recovered_secret_second_combo}")
+
+        self.assertEqual(original_secret, recovered_secret_first_combo, 'The recovered secret does not match original!')
+        self.assertEqual(recovered_secret_first_combo, recovered_secret_second_combo, 'Different recovery share combinations resulted in different secrets!')
+
 
 if __name__ == '__main__':
     unittest.main()
