@@ -37,8 +37,9 @@ def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, verbose=False):
     _ssss.split_with_args.restype = ctypes.POINTER(ctypes.c_char_p)
 
     num_shares = ctypes.c_int()
-
     security_bits = secret.bit_length()
+    quiet = int(not verbose)
+
     if verbose:
         print(f"Security bits: {security_bits}")
 
@@ -49,7 +50,7 @@ def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, verbose=False):
         print(f"num_shares: {ssss_num_shares}")
         print(f"use_hex: True")
         print(f"token: None")
-        print(f"quiet: {not verbose}")
+        print(f"quiet: {quiet}")
         print(f"num_output_shares: {num_shares.value}")
         print(f"security_bits: {security_bits}")
         print(f"use_diffusion: 0")
@@ -60,7 +61,7 @@ def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, verbose=False):
         ssss_num_shares,
         True, # use_hex mode
         None,
-        not verbose,  # quiet
+        quiet,  # quiet
         ctypes.byref(num_shares),
         security_bits,
         0   # use_diffusion
@@ -84,13 +85,14 @@ def ssss_combine(shares, verbose=False):
     for i, share in enumerate(shares):
         shares_array[i] = share.encode()
 
+    quiet = int(not verbose)
     error = ctypes.c_int()
     if verbose:
         print("\nCalling combine_with_args with:")
         print(f"shares: {[s.decode() for s in shares_array]}")
         print(f"num_shares: {num_shares}")
         print(f"use_hex: True")
-        print(f"quiet: {not verbose}")
+        print(f"quiet: {quiet}")
         print(f"error: {error.value}\n")
 
     _ssss.combine_with_args.restype = ctypes.c_char_p
@@ -99,7 +101,7 @@ def ssss_combine(shares, verbose=False):
         shares_array,
         num_shares,
         True, # use_hex mode
-        not verbose,  # quiet
+        quiet,  # quiet
         ctypes.byref(error)
     )
 
@@ -120,18 +122,21 @@ def prompt_for_secret():
     return secret, ssss_num_shares, ssss_threshold_shares
 
 def prompt_for_mnemonic_shares():
-    num_recovery_shares = int(input("Enter number of shares you will use to recover the secret: ").strip())
-    ssss_num_shares = int(num_recovery_shares) if num_recovery_shares else 3
+    num_recovery_shares = input("Enter number of shares you will use to recover the secret [3]: ").strip()
+    ssss_num_recovery_shares = int(num_recovery_shares) if num_recovery_shares else 3
     mnemonic_shares = []
-    for i in range(num_recovery_shares):
+    for i in range(ssss_num_recovery_shares):
         index = int(input(f"Enter share index: ").strip())
-        share = input(f"Enter mnemonic share: ").strip()
+        share = input(f"Enter mnemonic share: ").strip().split()
         mnemonic_shares.append((index, share))
+    for i in range(len(mnemonic_shares) - 1):
+        if len(mnemonic_shares[i]) != len(mnemonic_shares[i+1]):
+            raise Exception("All mnemonic shares must contain the same number of words")
     return mnemonic_shares
 
-def op_split(secret, n, t, args, wordlist, bitshift):
-    shares = ssss_split(mnemonic_to_bytestring(secret.split(), wordlist, bitshift), n, t, verbose=args.verbose)
-    print("\nRaw Shares:")
+def op_split(secret, n, t, wordlist, bitshift, verbose=False):
+    shares = ssss_split(mnemonic_to_bytestring(secret.split(), wordlist, bitshift), n, t, verbose)
+    print("\nSplit Secret - Raw Shares:")
     for i, share in shares:
         print(f"Share {i} (hex length: {len(share)}): {i}-{share}")
 
@@ -140,26 +145,38 @@ def op_split(secret, n, t, args, wordlist, bitshift):
         mnemonic = bytestring_to_mnemonic(int(share_contents, 16), wordlist, bitshift)
         mnemonic_shares.append((share_index, mnemonic))
 
-    print ("\nMnemonic Shares:")
+    print ("\nSplit Secret - Mnemonic Shares:")
     for i, mnemonic in mnemonic_shares:
         print(f"Share {i} (word length: {len(mnemonic)}): {' '.join(mnemonic)}")
 
     return mnemonic_shares
 
-def op_combine(mnemonic_shares, args, wordlist, bitshift):
+def op_combine(mnemonic_shares, wordlist, bitshift, verbose=False):
 
-    print(f"\nMnemonic shares: {mnemonic_shares}")
+    if verbose:
+        print(f"\nMnemonic shares for recombination:")
+        for i, m_share in mnemonic_shares:
+            print(i, ' '.join(m_share))
 
-    shares = [(index, mnemonic_to_bytestring(wordlist, mnemonic.split(), bitshift)) for index, mnemonic in mnemonic_shares]
-    print(f"\nShares: {shares}")
+    int_shares = [(index, mnemonic_to_bytestring(mnemonic, wordlist, bitshift)) for index, mnemonic in mnemonic_shares]
 
+    if verbose:
+        print(f"\nInteger Shares for recombination:")
+        for i_share in int_shares:
+            print(i_share)
+
+    min_hex_chars = len(mnemonic_shares[0][1]) / 4 * bitshift
     hex_shares = []
-    for index, share in shares:
+    for index, share in int_shares:
         hex_val = hex(share)[2:]  #  remove '0x' prefix
-        hex_shares.append(f"{index}-{hex_val}")
+        zero_padding = ''.join('0' for i in range(int(min_hex_chars) - len(hex_val)))
+        hex_shares.append(f"{index}-{zero_padding}{hex_val}")
 
-    print(f"\nHex shares: {hex_shares}")
-    recovered_secret = ssss_combine(hex_shares, verbose=args.verbose)
+    print(f"\nHex shares for recombination:")
+    for h_share in hex_shares:
+        print(h_share)
+
+    recovered_secret = ssss_combine(hex_shares, verbose)
     print(f"\nRecovered secret (hex): {hex(int(recovered_secret, 16))[2:]}")
     print(f"\nRecovered secret (mnemonic): {' '.join(bytestring_to_mnemonic(int(recovered_secret, 16), wordlist, bitshift))}")
 
@@ -185,16 +202,15 @@ if __name__ == "__main__":
     else:
         bitshift = int(args.bitshift)
 
-    if not args.security_bits:
-        security_bits = len(wordlist) * bitshift
-    else:
-        security_bits = int(args.security_bits)
+    # if not args.security_bits:
+    #     security_bits = len(wordlist) * bitshift
+    # else:
+    #     security_bits = int(args.security_bits)
 
     if args.verbose:
-        print(f"Wordlist: {wordlist}")
         print(f"Wordlist length: {len(wordlist)}")
         print(f"Bitshift: {bitshift}")
-        print(f"Security bits: {security_bits}")
+        # print(f"Security bits: {security_bits}")
 
     if args.operation == "condense":
         m = input("Enter BIP39 mnemonic to condense to hex string: ").strip()
@@ -206,16 +222,16 @@ if __name__ == "__main__":
 
     elif args.operation == "ssss-split":
         secret, n, t = prompt_for_secret()
-        op_split(secret, n, t, args, wordlist, bitshift)
+        op_split(secret, n, t, wordlist, bitshift, args.verbose)
 
     elif args.operation == "ssss-combine":
         mnemonic_shares = prompt_for_mnemonic_shares()
-        op_combine(mnemonic_shares, args, wordlist, bitshift)
+        op_combine(mnemonic_shares, wordlist, bitshift, args.verbose)
 
     elif args.operation == "full":
         original_secret, n, t = prompt_for_secret()
-        mnemonic_shares = op_split(original_secret, n, t, args, wordlist, bitshift)
-        recovered_secret = op_combine(mnemonic_shares, args, wordlist, bitshift)
+        mnemonic_shares = op_split(original_secret, n, t, wordlist, bitshift, args.verbose)
+        recovered_secret = op_combine(mnemonic_shares, wordlist, bitshift, args.verbose)
         if recovered_secret == original_secret:
             print("Recovered secret matches original secret.")
         else:
