@@ -7,7 +7,7 @@ Resulting shares are displayed in plaintext.
 
 *Always verify the shares are correct before using them!*
 
-*Use extreme caution when using any program (including this one)that deals with private keys/mnemonics!*
+*Use extreme caution when using any program (including this one) that deals with private keys/mnemonics!*
 
 If using this program to shard a private key, please ensure that the private key is stored securely and that the mnemonic seed/secret is never revealed to anyone!
 It is recommended to use a secure, offline computer to perform this operation when providing mnemonics that are used in production or used to store cryptoassets.
