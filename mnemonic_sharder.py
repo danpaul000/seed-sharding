@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
     elif args.operation == "expand":
         s = input("Enter hex string to expand to BIP39 mnemonic: ").strip()
-        print(f"\nExpanded mnemonic: {bytestring_to_mnemonic(int(s, 16), wordlist, bitshift)}")
+        print(f"\nExpanded mnemonic: {' '.join(bytestring_to_mnemonic(int(s, 16), wordlist, bitshift))}")
 
     elif args.operation == "ssss-split":
         secret, n, t = prompt_for_secret()

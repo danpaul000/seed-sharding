@@ -26,6 +26,7 @@ class TestMnemonicSharder(unittest.TestCase):
     def test_fixed_secrets(self):
         for secret in self.fixed_secrets:
             self.run_split_and_combine(secret)
+
     def test_random_secrets(self):
         for secret in self.random_secrets:
             self.run_split_and_combine(secret)
