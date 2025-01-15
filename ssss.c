@@ -471,7 +471,7 @@ char** split_with_args(const char* secret, int threshold, int num_shares, int us
   return output_shares;
 }
 
-char* combine_with_args(char** shares, int num_shares, int use_hex, int quiet, int* error)
+char* combine_with_args(char** shares, int num_shares, int use_hex, int quiet, int* error, int use_diffusion)
 {
   mpz_t A[num_shares][num_shares], y[num_shares], x;
   char *a, *b;
@@ -538,6 +538,13 @@ char* combine_with_args(char** shares, int num_shares, int use_hex, int quiet, i
     }
     field_deinit();
     return NULL;
+  }
+
+  if (use_diffusion) {
+    if (degree >= 64)
+      encode_mpz(y[num_shares - 1], DECODE);
+    else
+      warning("security level too small for the diffusion layer");
   }
 
   FILE* memstream = open_memstream(&result, &(size_t){0});

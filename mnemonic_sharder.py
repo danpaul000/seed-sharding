@@ -20,7 +20,7 @@ def bytestring_to_mnemonic(s, word_list, bitshift):
         s = s >> bitshift
     return mnemonic
 
-def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, security_bits=None, verbose=False):
+def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, security_bits=None, verbose=False, use_diffusion=True):
     _ssss = ctypes.CDLL('./libssss.so')
     # Set up function arg types
     _ssss.split_with_args.argtypes = [
@@ -52,22 +52,22 @@ def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, security_bits=Non
         print(f"quiet: {quiet}")
         print(f"num_output_shares: {num_shares.value}")
         print(f"security_bits: {security_bits}")
-        print(f"use_diffusion: 0")
+        print(f"use_diffusion: {use_diffusion}")
 
     shares_ptr = _ssss.split_with_args(
         str(hex(secret)[2:]).encode(),
         ssss_threshold_shares,
         ssss_num_shares,
         True, # use_hex mode
-        None,
+        None,   # token
         quiet,  # quiet
         ctypes.byref(num_shares),
         security_bits,
-        0   # use_diffusion
+        use_diffusion
     )
     return [(share.decode().split('-')[0].strip(), share.decode().split('-')[1].strip()) for share in (shares_ptr[i] for i in range(num_shares.value))]
 
-def ssss_combine(shares, verbose=False):
+def ssss_combine(shares, verbose=False, use_diffusion=True):
     # Set up SSSS combine function
     _ssss = ctypes.CDLL('./libssss.so')
     _ssss.combine_with_args.argtypes = [
@@ -75,7 +75,8 @@ def ssss_combine(shares, verbose=False):
         ctypes.c_int,                     # num_shares
         ctypes.c_int,                     # use_hex
         ctypes.c_int,                     # quiet
-        ctypes.POINTER(ctypes.c_int)      # error
+        ctypes.POINTER(ctypes.c_int),     # error
+        ctypes.c_int                      # use_diffusion
     ]
 
     # Convert shares to C array
@@ -92,7 +93,8 @@ def ssss_combine(shares, verbose=False):
         print(f"num_shares: {num_shares}")
         print(f"use_hex: True")
         print(f"quiet: {quiet}")
-        print(f"error: {error.value}\n")
+        print(f"error: {error.value}")
+        print(f"use_diffusion: {use_diffusion}")
 
     _ssss.combine_with_args.restype = ctypes.c_char_p
 
@@ -101,7 +103,8 @@ def ssss_combine(shares, verbose=False):
         num_shares,
         True, # use_hex mode
         quiet,  # quiet
-        ctypes.byref(error)
+        ctypes.byref(error),
+        use_diffusion
     )
 
     if error.value != 0:
