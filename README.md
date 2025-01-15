@@ -1,6 +1,7 @@
 # Mnemonic Sharding using Shamir's Secret Sharing Scheme
 
 ***WARNING: Absolutely no guarantees are made about the security or accuracy of this code!***
+***Use extreme caution when using any program (including this one) that deals with private keys/mnemonics!***
 
 This program is designed to add an additional layer of security and redundancy for the cold storage self-custody of BIP39 mnemonics (seed phrases).
 Uses Shamir's secret sharing scheme to take a BIP39 mnemonic for a seed phrase and create N arbitrary shares in BIP39 format of the same length, which can be stored separately.
@@ -11,8 +12,6 @@ This program prompts the user to enter a plaintext mnemonic seed/secret which ma
 Resulting shares are displayed in plaintext.
 
 *Always verify the shares are correct before using them!*
-
-***Use extreme caution when using any program (including this one) that deals with private keys/mnemonics!***
 
 If using this program to shard a private key, please ensure that the private key is stored securely and that the mnemonic seed/secret is never revealed to anyone!
 It is recommended to use a secure, offline computer to perform this operation when providing mnemonics that are used in production or used to store cryptoassets.
