@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 import math
+import sys
 
 def mnemonic_to_bytestring(mnemonic, word_list, bitshift):
     bytestring = 0
@@ -19,6 +20,28 @@ def bytestring_to_mnemonic(s, word_list, bitshift):
         mnemonic.insert(0, word_list[idx])  # Don't append or word list will come out reversed
         s = s >> bitshift
     return mnemonic
+
+def lengthen_truncated_words(truncated_mnemonic, word_list):
+    trunc_list = truncated_mnemonic.split()
+    # For each truncated word, find matching words from wordlist
+    matches = []
+    for trunc in trunc_list:
+        if len(trunc) == 3:
+            if trunc in word_list:
+                match = trunc
+            else:
+                print(f"Error: Word '{trunc}' not found in word list.")
+                sys.exit(1)
+        else:
+            word_matches = [w for w in word_list if w.startswith(trunc)]
+            if len(word_matches) != 1:
+                print(f"Error: Found {len(word_matches)} matches for '{trunc}'. Must have exactly one match.")
+                sys.exit(1)
+            else:
+                match = word_matches[0]
+
+        matches.append(match)
+    return ' '.join(matches)
 
 def ssss_split(secret, ssss_num_shares, ssss_threshold_shares, security_bits=None, verbose=False, use_diffusion=True):
     _ssss = ctypes.CDLL('./libssss.so')
@@ -123,14 +146,15 @@ def prompt_for_secret():
     ssss_threshold_shares = int(threshold) if threshold else 3
     return secret, ssss_num_shares, ssss_threshold_shares
 
-def prompt_for_mnemonic_shares():
+def prompt_for_mnemonic_shares(word_list):
     num_recovery_shares = input("Enter number of shares you will use to recover the secret [3]: ").strip()
     ssss_num_recovery_shares = int(num_recovery_shares) if num_recovery_shares else 3
     mnemonic_shares = []
     for i in range(ssss_num_recovery_shares):
         index = int(input(f"Enter share index: ").strip())
-        share = input(f"Enter mnemonic share: ").strip().split()
-        mnemonic_shares.append((index, share))
+        share = input(f"Enter mnemonic share: ").strip()
+        lengthened_share = lengthen_truncated_words(share, word_list).split()
+        mnemonic_shares.append((index, lengthened_share))
     for i in range(len(mnemonic_shares) - 1):
         if len(mnemonic_shares[i]) != len(mnemonic_shares[i+1]):
             raise Exception("All mnemonic shares must contain the same number of words")
@@ -205,7 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
     parser.add_argument('-w', '--wordlist', type=str, help='Path to custom wordlist', default='english.txt')
     parser.add_argument('-b', '--bitshift', type=int, help='Bits per word (defaults to log2 of wordlist length)')
-    parser.add_argument('operation', choices=['condense', 'expand', 'ssss-split', 'ssss-combine', 'full', 'none'],
+    parser.add_argument('operation', choices=['condense', 'expand', 'ssss-split', 'ssss-combine', 'full', 'lengthen', 'truncate', 'none'],
                        help='Operation to perform: condense, expand, ssss-split, ssss-combine, full, none')
     args = parser.parse_args()
 
@@ -233,18 +257,31 @@ if __name__ == "__main__":
 
     elif args.operation == "ssss-split":
         secret, n, t = prompt_for_secret()
-        op_split(secret, n, t, wordlist, bitshift, args.verbose)
+        full_length_secret = lengthen_truncated_words(secret, wordlist)
+        op_split(full_length_secret, n, t, wordlist, bitshift, args.verbose)
 
     elif args.operation == "ssss-combine":
-        mnemonic_shares = prompt_for_mnemonic_shares()
+        mnemonic_shares = prompt_for_mnemonic_shares(wordlist)
         op_combine(mnemonic_shares, wordlist, bitshift, args.verbose)
 
     elif args.operation == "full":
         original_secret, n, t = prompt_for_secret()
-        mnemonic_shares = op_split(original_secret, n, t, wordlist, bitshift, args.verbose)
+        full_length_secret = lengthen_truncated_words(original_secret, wordlist)
+        mnemonic_shares = op_split(full_length_secret, n, t, wordlist, bitshift, args.verbose)
         recovered_secret = op_combine(mnemonic_shares[0:t], wordlist, bitshift, args.verbose)
 
-        if recovered_secret == original_secret:
+        if recovered_secret == full_length_secret:
             print("Success! Recovered secret matches original secret.")
         else:
             print("!!! ERROR - Recovered secret does not match original secret !!!")
+
+    elif args.operation == "lengthen":
+        m_trunc = input("Enter truncated BIP39 mnemonic: ").strip()
+        m = lengthen_truncated_words(m_trunc, wordlist)
+        print(f"\nLengthened mnemonic: {m}")
+
+    elif args.operation == "truncate":
+        m = input("Enter BIP39 mnemonic to truncate: ").strip()
+        # Split into words and truncate each to first 4 letters
+        truncated = [word[:4] for word in m.split()]
+        print(f"\nTruncated words: {' '.join(truncated)}")
